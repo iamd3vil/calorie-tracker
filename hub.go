@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -26,7 +27,6 @@ func NewHub(db *sqlx.DB, bot *tb.Bot) *Hub {
 
 // SetBudget sets daily caloie budget for a user
 func (h *Hub) SetBudget(m *tb.Message) {
-	fmt.Println(m.Text)
 	budget, err := strconv.ParseInt(strings.Split(m.Text, " ")[1], 0, 64)
 	if err != nil {
 		h.Bot.Send(m.Sender, "Sorry!! Couldn't set daily budget")
@@ -54,7 +54,6 @@ func (h *Hub) SetBudget(m *tb.Message) {
 
 // GetBudget gets set daily calorie budget
 func (h *Hub) GetBudget(m *tb.Message) {
-	fmt.Println(m.Text)
 	bud := Budget{}
 
 	err := h.DB.Get(&bud, "SELECT user_id, daily_budget FROM budgets WHERE user_id=$1", fmt.Sprint(m.Sender.ID))
@@ -65,4 +64,47 @@ func (h *Hub) GetBudget(m *tb.Message) {
 	}
 
 	h.Bot.Send(m.Sender, fmt.Sprintf("Current budget set is %d. Good luck!!", bud.DailyBudget))
+}
+
+// SetEntry sets an entry
+func (h *Hub) SetEntry(m *tb.Message) {
+	name := strings.Split(m.Text, " ")[1]
+
+	calories, err := strconv.ParseInt(strings.Split(m.Text, " ")[2], 0, 64)
+	if err != nil {
+		h.Bot.Send(m.Sender, "Sorry!! Couldn't write entry")
+		return
+	}
+
+	date := time.Now().Format("2-Jan-2006")
+
+	// Get daily budget for the user
+	bud := Budget{}
+
+	err = h.DB.Get(&bud, "SELECT id, user_id, daily_budget FROM budgets WHERE user_id=$1", fmt.Sprint(m.Sender.ID))
+	if err != nil {
+		log.Printf("Err: %v", err)
+		h.Bot.Send(m.Sender, "Sorry!! Couldn't write entry. Please try again")
+		return
+	}
+
+	entry := Entry{
+		UserID:   bud.ID,
+		Name:     name,
+		Date:     date,
+		Calories: calories,
+	}
+
+	const q = `
+		INSERT INTO entries (user_id, name, date, calories) VALUES (:user_id, :name, :date, :calories)
+	`
+
+	_, err = h.DB.NamedExec(q, entry)
+	if err != nil {
+		log.Printf("Err: %v", err)
+		h.Bot.Send(m.Sender, "Sorry!! Couldn't write entry. Please try again")
+		return
+	}
+
+	h.Bot.Send(m.Sender, fmt.Sprintf("Entry added. Reminder: Your daily budget is %d", bud.DailyBudget))
 }

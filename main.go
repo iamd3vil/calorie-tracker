@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -18,6 +17,7 @@ const createSchema = `
 CREATE TABLE entries (
 	id INTEGER PRIMARY KEY,
 	user_id INTEGER NOT NULL,
+	name TEXT NOT NULL,
 	date TEXT NOT NULL,
 	calories INTEGER NOT NULL,
 	FOREIGN KEY(user_id) REFERENCES budgets(id)
@@ -25,13 +25,21 @@ CREATE TABLE entries (
 
 CREATE TABLE budgets (
 	id INTEGER PRIMARY KEY,
-	user_id TEXT,
+	user_id TEXT NOT NULL,
 	daily_budget INTEGER NOT NULL
 );`
 
 type Budget struct {
+	ID          int64  `db:"id"`
 	UserID      string `db:"user_id"`
 	DailyBudget int64  `db:"daily_budget"`
+}
+
+type Entry struct {
+	UserID   int64  `db:"user_id"`
+	Date     string `db:"date"`
+	Name     string `db:"name"`
+	Calories int64  `db:"calories"`
 }
 
 func main() {
@@ -55,13 +63,14 @@ func main() {
 	h := NewHub(db, b)
 
 	b.Handle("/hello", func(m *tb.Message) {
-		fmt.Println(m.Text)
-		b.Send(m.Sender, "hello world")
+		b.Send(m.Sender, "Hello")
 	})
 
 	b.Handle("/setbudget", h.SetBudget)
 
 	b.Handle("/budget", h.GetBudget)
+
+	b.Handle("/add", h.SetEntry)
 
 	b.Start()
 }
