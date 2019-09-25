@@ -67,10 +67,9 @@ func main() {
 	})
 
 	b.Handle("/setbudget", h.SetBudget)
-
 	b.Handle("/budget", h.GetBudget)
-
 	b.Handle("/add", h.SetEntry)
+	b.Handle("/clear", h.ClearEntries)
 
 	b.Start()
 }

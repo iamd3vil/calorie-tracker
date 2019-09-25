@@ -106,5 +106,33 @@ func (h *Hub) SetEntry(m *tb.Message) {
 		return
 	}
 
-	h.Bot.Send(m.Sender, fmt.Sprintf("Entry added. Reminder: Your daily budget is %d", bud.DailyBudget))
+	allCal := Entry{}
+	// Get sum of all the calories for today
+	const q2 = `
+		SELECT sum(calories) as calories FROM entries WHERE date=$1
+	`
+
+	err = h.DB.Get(&allCal, q2, date)
+	if err != nil {
+		log.Printf("Err: %v", err)
+		h.Bot.Send(m.Sender, "Sorry!! Couldn't write entry. Please try again")
+		return
+	}
+
+	h.Bot.Send(m.Sender, fmt.Sprintf("Entry added. You can still consume: %d", bud.DailyBudget-allCal.Calories))
+}
+
+// ClearEntries clears out all entries for today
+func (h *Hub) ClearEntries(m *tb.Message) {
+	const q = `DELETE FROM entries WHERE DATE=$1`
+	date := time.Now().Format("2-Jan-2006")
+
+	_, err := h.DB.Exec(q, date)
+	if err != nil {
+		log.Printf("Err: %v", err)
+		h.Bot.Send(m.Sender, "Sorry!! Couldn't clear entries. Please try again")
+		return
+	}
+
+	h.Bot.Send(m.Sender, "All entries for today cleared")
 }
