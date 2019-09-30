@@ -39,7 +39,8 @@ func (h *Hub) SetBudget(m *tb.Message) {
 	}
 
 	const q = `
-			INSERT INTO budgets (user_id, daily_budget) VALUES (:user_id, :daily_budget)
+			INSERT INTO budgets (user_id, daily_budget) VALUES (:user_id, :daily_budget) 
+			ON CONFLICT(user_id) DO UPDATE SET daily_budget=:daily_budget
 		`
 
 	_, err = h.DB.NamedExec(q, bud)
@@ -135,4 +136,47 @@ func (h *Hub) ClearEntries(m *tb.Message) {
 	}
 
 	h.Bot.Send(m.Sender, "All entries for today cleared")
+}
+
+// SendStats sends statistics every day
+func (h *Hub) SendStats() {
+	log.Println("Starting sending stats")
+
+	// Get yesterday's date
+	date := time.Now().AddDate(0, 0, -1).Format("2-Jan-2006")
+
+	bud := []Budget{}
+
+	err := h.DB.Select(&bud, "SELECT id, user_id, daily_budget FROM budgets")
+	if err != nil {
+		log.Printf("Err: %v", err)
+		return
+	}
+
+	for _, b := range bud {
+		allCal := Entry{}
+		// Get sum of all the calories for today
+		const q2 = `
+			SELECT sum(calories) as calories FROM entries WHERE date=$1 and user_id=$2
+		`
+
+		err = h.DB.Get(&allCal, q2, date, b.ID)
+		if err != nil {
+			log.Printf("Err: %v", err)
+			return
+		}
+
+		if allCal.Calories == 0 {
+			break
+		}
+
+		userID, _ := strconv.Atoi(b.UserID)
+
+		recipient := &tb.User{
+			ID: userID,
+		}
+
+		h.Bot.Send(recipient, fmt.Sprintf("Your daily budget: %d, and you consumed: %v", b.DailyBudget, allCal.Calories))
+		log.Printf("Sent stats message to: %s", b.UserID)
+	}
 }

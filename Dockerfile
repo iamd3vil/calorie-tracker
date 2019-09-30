@@ -13,7 +13,8 @@ RUN go build
 FROM alpine:latest
 
 RUN apk update && \
-    apk add libc-dev
+    apk add tzdata libc-dev
+
 
 WORKDIR /app
 

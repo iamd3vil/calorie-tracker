@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jasonlvhit/gocron"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	tb "gopkg.in/tucnak/telebot.v2"
@@ -25,7 +26,7 @@ CREATE TABLE entries (
 
 CREATE TABLE budgets (
 	id INTEGER PRIMARY KEY,
-	user_id TEXT NOT NULL,
+	user_id TEXT NOT NULL UNIQUE,
 	daily_budget INTEGER NOT NULL
 );`
 
@@ -61,6 +62,11 @@ func main() {
 	}
 
 	h := NewHub(db, b)
+	gocron.Every(1).Day().At("07:00").Do(h.SendStats)
+
+	go func() {
+		<-gocron.Start()
+	}()
 
 	b.Handle("/hello", func(m *tb.Message) {
 		b.Send(m.Sender, "Hello")
